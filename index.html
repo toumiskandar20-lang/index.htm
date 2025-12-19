@@ -1,138 +1,192 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-  <meta charset="UTF-8">
-  <title>MaliApp</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<title>MaliApp</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Firebase SDK -->
-  <script type="module">
-    // 🔥 Firebase SDK
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { 
-      getAuth, 
-      createUserWithEmailAndPassword,
-      signInWithEmailAndPassword 
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { 
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    import { 
-      getFirestore, 
-      doc, 
-      setDoc,
-      getDoc 
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  arrayUnion
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // 🔑 Firebase Config (متاعك)
-    const firebaseConfig = {
-      apiKey: "AIzaSyBfMUa-8vsUZ_1r5F79iSKOKqMre99lwbI",
-      authDomain: "maliapp-63f91.firebaseapp.com",
-      projectId: "maliapp-63f91",
-      storageBucket: "maliapp-63f91.appspot.com",
-      messagingSenderId: "901870433172",
-      appId: "1:901870433172:web:325b2312af72099279d581"
-    };
+/* 🔐 إعدادات Firebase */
+const firebaseConfig = {
+  apiKey: "AIzaSyBfMUa-8vsUZ_1r5F79iSKOKqMre99lwbI",
+  authDomain: "maliapp-63f91.firebaseapp.com",
+  projectId: "maliapp-63f91",
+  storageBucket: "maliapp-63f91.appspot.com",
+  messagingSenderId: "901870433172",
+  appId: "1:901870433172:web:325b2312af72099279d581"
+};
 
-    // 🚀 Initialize
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-    // 🟢 تسجيل حساب
-    window.register = async function () {
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
+/* 🎯 تسجيل حساب */
+window.register = async () => {
+  const email = emailInput.value;
+  const pass = passwordInput.value;
 
-      if (!email.includes("@")) {
-        alert("❌ الإيميل غير صحيح");
-        return;
-      }
+  if(!email || !pass) return alert("عبي الحقول");
 
-      try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
+  try {
+    const res = await createUserWithEmailAndPassword(auth,email,pass);
+    const uid = res.user.uid;
 
-        // 🗂️ تخزين المستخدم في Firestore
-        await setDoc(doc(db, "users", user.uid), {
-          email: email,
-          balance: 0,
-          createdAt: new Date()
-        });
+    const inviteCode = uid.slice(0,6);
 
-        alert("✅ تم إنشاء الحساب بنجاح");
-        showDashboard(email, 0);
+    await setDoc(doc(db,"users",uid),{
+      email,
+      balance: 0,
+      inviteCode,
+      team: [],
+      level: 1
+    });
 
-      } catch (error) {
-        alert(error.message);
-      }
-    };
+    alert("✅ تم إنشاء الحساب");
+  } catch(e) {
+    alert(e.message);
+  }
+};
 
-    // 🔵 تسجيل دخول
-    window.login = async function () {
-      const email = document.getElementById("email").value;
-      const password = document.getElementById("password").value;
+/* 🔑 تسجيل دخول */
+window.login = async () => {
+  try {
+    await signInWithEmailAndPassword(auth,emailInput.value,passwordInput.value);
+  } catch(e) {
+    alert("❌ خطأ في الدخول");
+  }
+};
 
-      try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
+/* 👀 مراقبة الحالة */
+onAuthStateChanged(auth, async user => {
+  if(user){
+    authBox.style.display="none";
+    appBox.style.display="block";
 
-        // 📥 جلب البيانات
-        const snap = await getDoc(doc(db, "users", user.uid));
-        const data = snap.data();
+    const snap = await getDoc(doc(db,"users",user.uid));
+    const data = snap.data();
 
-        showDashboard(data.email, data.balance);
+    balance.innerText = data.balance;
+    inviteLink.innerText =
+      location.origin + location.pathname + "?ref=" + data.inviteCode;
 
-      } catch (error) {
-        alert("❌ معلومات الدخول غير صحيحة");
-      }
-    };
+    renderTeam(data.team);
+  }
+});
 
-    // 🧠 عرض لوحة التحكم
-    function showDashboard(email, balance) {
-      document.getElementById("auth").style.display = "none";
-      document.getElementById("dashboard").style.display = "block";
-      document.getElementById("userEmail").innerText = email;
-      document.getElementById("balance").innerText = balance;
-    }
-  </script>
+/* 👥 إضافة عضو فريق */
+window.addFriend = async () => {
+  const user = auth.currentUser;
+  const refEmail = friendEmail.value;
 
-  <style>
-    body {
-      font-family: Arial;
-      background: #f2f2f2;
-      text-align: center;
-      padding-top: 50px;
-    }
-    input {
-      padding: 10px;
-      margin: 5px;
-      width: 250px;
-    }
-    button {
-      padding: 10px 20px;
-      margin: 5px;
-      cursor: pointer;
-    }
-    #dashboard {
-      display: none;
-    }
-  </style>
+  if(!refEmail) return;
+
+  const ref = doc(db,"users",user.uid);
+
+  await updateDoc(ref,{
+    balance: 10,
+    team: arrayUnion(refEmail)
+  });
+
+  alert("👤 تمت إضافة عضو للفريق");
+  location.reload();
+};
+
+/* 💸 سحب راتب وهمي */
+window.withdraw = async () => {
+  const user = auth.currentUser;
+  const ref = doc(db,"users",user.uid);
+  const snap = await getDoc(ref);
+
+  let bal = snap.data().balance;
+  if(bal < 10) return alert("الرصيد غير كافي");
+
+  await updateDoc(ref,{ balance: bal - 10 });
+  alert("💰 تم سحب الراتب");
+  location.reload();
+};
+
+/* عرض الفريق */
+function renderTeam(team){
+  teamList.innerHTML="";
+  team.forEach(t=>{
+    const d=document.createElement("div");
+    d.innerText="👤 "+t;
+    teamList.appendChild(d);
+  });
+}
+</script>
+
+<style>
+body{
+  background:linear-gradient(135deg,#6a11cb,#2575fc);
+  font-family:Arial;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+.box{
+  background:#fff;
+  width:330px;
+  padding:20px;
+  border-radius:12px;
+  text-align:center;
+}
+input,button{
+  width:100%;
+  padding:10px;
+  margin:6px 0;
+}
+button{
+  background:#2575fc;
+  color:white;
+  border:none;
+  border-radius:6px;
+}
+</style>
 </head>
 
 <body>
 
-  <div id="auth">
-    <h2>MaliApp</h2>
-    <input id="email" type="email" placeholder="Email"><br>
-    <input id="password" type="password" placeholder="Password"><br>
-    <button onclick="register()">تسجيل حساب</button>
-    <button onclick="login()">دخول</button>
-  </div>
+<div class="box" id="authBox">
+  <h2>MaliApp</h2>
+  <input id="emailInput" type="email" placeholder="Email">
+  <input id="passwordInput" type="password" placeholder="Password">
+  <button onclick="register()">تسجيل حساب</button>
+  <button onclick="login()">تسجيل دخول</button>
+</div>
 
-  <div id="dashboard">
-    <h2>مرحبا 👋</h2>
-    <p>📧 <span id="userEmail"></span></p>
-    <p>💰 الرصيد: <span id="balance"></span></p>
-  </div>
+<div class="box" id="appBox" style="display:none">
+  <h3>رصيدك: <span id="balance">0</span></h3>
+  <p>رابط الدعوة:</p>
+  <small id="inviteLink"></small>
+
+  <input id="friendEmail" placeholder="إيميل صديق">
+  <button onclick="addFriend()">إضافة للفريق</button>
+
+  <button onclick="withdraw()">سحب راتب</button>
+
+  <h4>👥 الفريق</h4>
+  <div id="teamList"></div>
+</div>
 
 </body>
 </html>
