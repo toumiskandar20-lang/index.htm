@@ -1,119 +1,138 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-<meta charset="UTF-8">
-<title>MaliApp</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>MaliApp</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #2575fc;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-}
-.box {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  width: 350px;
-}
-input, button {
-  width: 100%;
-  padding: 10px;
-  margin: 8px 0;
-}
-button {
-  background: #28a745;
-  color: white;
-  border: none;
-  border-radius: 6px;
-}
-.dashboard { display: none; }
-</style>
+  <!-- Firebase SDK -->
+  <script type="module">
+    // 🔥 Firebase SDK
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { 
+      getAuth, 
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    import { 
+      getFirestore, 
+      doc, 
+      setDoc,
+      getDoc 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // 🔑 Firebase Config (متاعك)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBfMUa-8vsUZ_1r5F79iSKOKqMre99lwbI",
+      authDomain: "maliapp-63f91.firebaseapp.com",
+      projectId: "maliapp-63f91",
+      storageBucket: "maliapp-63f91.appspot.com",
+      messagingSenderId: "901870433172",
+      appId: "1:901870433172:web:325b2312af72099279d581"
+    };
+
+    // 🚀 Initialize
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // 🟢 تسجيل حساب
+    window.register = async function () {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      if (!email.includes("@")) {
+        alert("❌ الإيميل غير صحيح");
+        return;
+      }
+
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // 🗂️ تخزين المستخدم في Firestore
+        await setDoc(doc(db, "users", user.uid), {
+          email: email,
+          balance: 0,
+          createdAt: new Date()
+        });
+
+        alert("✅ تم إنشاء الحساب بنجاح");
+        showDashboard(email, 0);
+
+      } catch (error) {
+        alert(error.message);
+      }
+    };
+
+    // 🔵 تسجيل دخول
+    window.login = async function () {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // 📥 جلب البيانات
+        const snap = await getDoc(doc(db, "users", user.uid));
+        const data = snap.data();
+
+        showDashboard(data.email, data.balance);
+
+      } catch (error) {
+        alert("❌ معلومات الدخول غير صحيحة");
+      }
+    };
+
+    // 🧠 عرض لوحة التحكم
+    function showDashboard(email, balance) {
+      document.getElementById("auth").style.display = "none";
+      document.getElementById("dashboard").style.display = "block";
+      document.getElementById("userEmail").innerText = email;
+      document.getElementById("balance").innerText = balance;
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #f2f2f2;
+      text-align: center;
+      padding-top: 50px;
+    }
+    input {
+      padding: 10px;
+      margin: 5px;
+      width: 250px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    #dashboard {
+      display: none;
+    }
+  </style>
 </head>
 
 <body>
 
-<div class="box">
-  <h2>MaliApp</h2>
-
-  <!-- تسجيل -->
   <div id="auth">
-    <input id="email" type="email" placeholder="إيميل صحيح">
-    <input id="password" type="password" placeholder="كلمة مرور">
-    <button onclick="register()">تسجيل</button>
+    <h2>MaliApp</h2>
+    <input id="email" type="email" placeholder="Email"><br>
+    <input id="password" type="password" placeholder="Password"><br>
+    <button onclick="register()">تسجيل حساب</button>
     <button onclick="login()">دخول</button>
   </div>
 
-  <!-- لوحة التحكم -->
-  <div class="dashboard" id="dashboard">
-    <p>رصيدك: <span id="balance">0</span> 💰</p>
-    <p>رابطك: <span id="ref"></span></p>
-    <button onclick="logout()">خروج</button>
+  <div id="dashboard">
+    <h2>مرحبا 👋</h2>
+    <p>📧 <span id="userEmail"></span></p>
+    <p>💰 الرصيد: <span id="balance"></span></p>
   </div>
-</div>
-
-<!-- Firebase -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBfMUa-8vsUZ_1r5F79iSKOKqMre99lwbI",
-  authDomain: "maliapp-63f91.firebaseapp.com",
-  projectId: "maliapp-63f91",
-  storageBucket: "maliapp-63f91.appspot.com",
-  messagingSenderId: "901870433172",
-  appId: "1:901870433172:web:325b2312af72099279d581"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// تسجيل
-window.register = async () => {
-  const email = email.value;
-  const password = password.value;
-
-  const userCred = await createUserWithEmailAndPassword(auth, email, password);
-  const uid = userCred.user.uid;
-
-  const refCode = Math.floor(Math.random() * 100000);
-
-  await setDoc(doc(db, "users", uid), {
-    email,
-    balance: 0,
-    referral: refCode
-  });
-
-  alert("تم إنشاء الحساب ✅");
-};
-
-// دخول
-window.login = async () => {
-  const userCred = await signInWithEmailAndPassword(auth, email.value, password.value);
-  const uid = userCred.user.uid;
-
-  const snap = await getDoc(doc(db, "users", uid));
-  const data = snap.data();
-
-  document.getElementById("auth").style.display = "none";
-  document.getElementById("dashboard").style.display = "block";
-  balance.innerText = data.balance;
-  ref.innerText = "https://maliapp.com/ref=" + data.referral;
-};
-
-// خروج
-window.logout = async () => {
-  await signOut(auth);
-  location.reload();
-};
-</script>
 
 </body>
 </html>
