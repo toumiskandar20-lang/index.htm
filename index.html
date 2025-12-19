@@ -1,123 +1,146 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-  <meta charset="UTF-8">
-  <title>MaliApp</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<title>MaliApp</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg,#6a11cb,#2575fc);
-      min-height:100vh;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      color:#333;
-    }
-    .box {
-      background:#fff;
-      padding:25px;
-      width:320px;
-      border-radius:15px;
-      box-shadow:0 10px 30px rgba(0,0,0,.3);
-      text-align:center;
-    }
-    input {
-      width:100%;
-      padding:10px;
-      margin:8px 0;
-      border-radius:8px;
-      border:1px solid #ccc;
-      font-size:16px;
-    }
-    button {
-      width:100%;
-      padding:10px;
-      margin-top:10px;
-      border:none;
-      border-radius:8px;
-      background:#2575fc;
-      color:white;
-      font-size:16px;
-      cursor:pointer;
-    }
-    button:hover { background:#6a11cb; }
-    .hidden { display:none; }
-  </style>
+<style>
+body{
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg,#6a11cb,#2575fc);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+  margin:0;
+}
+.box{
+  background:#fff;
+  padding:20px;
+  width:360px;
+  border-radius:15px;
+  box-shadow:0 10px 30px rgba(0,0,0,.4);
+}
+h2{text-align:center}
+input,button{
+  width:100%;
+  padding:12px;
+  margin:8px 0;
+  border-radius:8px;
+  border:1px solid #ccc;
+}
+button{
+  background:#2575fc;
+  color:#fff;
+  border:none;
+  cursor:pointer;
+}
+button:hover{opacity:.9}
+.dashboard{display:none}
+.link{color:#2575fc;cursor:pointer}
+</style>
 </head>
 
 <body>
 
-<div class="box" id="authBox">
-  <h2>MaliApp</h2>
-  <input type="email" id="email" placeholder="Email">
-  <input type="password" id="password" placeholder="Password">
-  <button onclick="login()">دخول</button>
-  <button onclick="register()">تسجيل حساب جديد</button>
+<div class="box">
+
+  <!-- تسجيل / دخول -->
+  <div id="auth">
+    <h2>MaliApp</h2>
+    <input id="email" type="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="register()">تسجيل حساب</button>
+    <button onclick="login()">دخول</button>
+    <p id="msg"></p>
+  </div>
+
+  <!-- لوحة التطبيق -->
+  <div id="app" class="dashboard">
+    <h2>مرحبا بك 🎉</h2>
+    <p>رصيدك: <b><span id="balance">0</span></b> 💰</p>
+    <p>رابط الدعوة:</p>
+    <p class="link" id="refLink"></p>
+
+    <button onclick="addTask()">إنجاز مهمة (+10)</button>
+    <button onclick="logout()">تسجيل خروج</button>
+  </div>
+
 </div>
 
-<div class="box hidden" id="appBox">
-  <h2>🎉 مرحبا بك</h2>
-  <p>تم تسجيل الدخول بنجاح</p>
-  <p id="userEmail"></p>
-  <button onclick="logout()">تسجيل الخروج</button>
-</div>
+<!-- Firebase CDN -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-  // 🔥 Firebase config (متاعك)
-  const firebaseConfig = {
-    apiKey: "AIzaSyBfMUa-8vsUZ_1r5F79iSKOKqMre99lwbI",
-    authDomain: "maliapp-63f91.firebaseapp.com",
-    projectId: "maliapp-63f91",
-    storageBucket: "maliapp-63f91.firebasestorage.app",
-    messagingSenderId: "901870433172",
-    appId: "1:901870433172:web:325b2312af72099279d581"
-  };
+// 🔥 Firebase config (متاعك)
+const firebaseConfig = {
+  apiKey: "AIzaSyBfMUa-8vsUZ_1r5F79iSKOKqMre99lwbI",
+  authDomain: "maliapp-63f91.firebaseapp.com",
+  projectId: "maliapp-63f91",
+  storageBucket: "maliapp-63f91.appspot.com",
+  messagingSenderId: "901870433172",
+  appId: "1:901870433172:web:325b2312af72099279d581"
+};
 
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
+firebase.initializeApp(firebaseConfig);
 
-  // تسجيل حساب
-  function register() {
-    const email = email.value;
-    const password = password.value;
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-    auth.createUserWithEmailAndPassword(email, password)
-      .then(() => alert("✅ تم إنشاء الحساب"))
-      .catch(err => alert(err.message));
-  }
+// تسجيل حساب
+function register(){
+  const email = email.value;
+  const password = password.value;
 
-  // تسجيل دخول
-  function login() {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
+  auth.createUserWithEmailAndPassword(email,password)
+  .then(user=>{
+    db.collection("users").doc(user.user.uid).set({
+      balance:0,
+      referral:user.user.uid.slice(0,6)
+    });
+    showApp();
+  })
+  .catch(err=>msg.innerText=err.message);
+}
 
-    auth.signInWithEmailAndPassword(email, password)
-      .catch(err => alert(err.message));
-  }
+// دخول
+function login(){
+  auth.signInWithEmailAndPassword(email.value,password.value)
+  .then(showApp)
+  .catch(err=>msg.innerText=err.message);
+}
 
-  // تسجيل خروج
-  function logout() {
-    auth.signOut();
-  }
+// إظهار التطبيق
+function showApp(){
+  auth.onAuthStateChanged(user=>{
+    if(user){
+      document.getElementById("auth").style.display="none";
+      document.getElementById("app").style.display="block";
 
-  // مراقبة حالة المستخدم
-  auth.onAuthStateChanged(user => {
-    if (user) {
-      authBox.classList.add("hidden");
-      appBox.classList.remove("hidden");
-      userEmail.innerText = "📧 " + user.email;
-    } else {
-      authBox.classList.remove("hidden");
-      appBox.classList.add("hidden");
+      db.collection("users").doc(user.uid).get().then(doc=>{
+        balance.innerText = doc.data().balance;
+        refLink.innerText =
+        location.origin+"?ref="+doc.data().referral;
+      });
     }
   });
+}
+
+// مهمة
+function addTask(){
+  const user = auth.currentUser;
+  const ref = db.collection("users").doc(user.uid);
+  ref.update({balance:firebase.firestore.FieldValue.increment(10)})
+  .then(()=>showApp());
+}
+
+// خروج
+function logout(){
+  auth.signOut().then(()=>location.reload());
+}
 </script>
 
 </body>
